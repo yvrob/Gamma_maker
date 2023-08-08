@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Script Description:
+# Called by create_all_gammas.sh, runs a chunk between the start and end of the current chunk on savio
+
+#SBATCH --partition=savio3
+#SBATCH --time=72:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=40
+
+# QoS: savio_normal
+#SBATCH --qos=savio_normal
+#
+# Account:
+#SBATCH -A fc_neutronics
+
+# run command
+
+source sss_environment kraken
+python make_gammas.py $1 $2

@@ -1,0 +1,54 @@
+#!/bin/bash
+
+# Load necessary modules
+echo "Loading modules..."
+module_list=("python/3.8.8" "gcc/12.1.0"  "openmpi/4.1.4-gcc" "cmake/3.22.0" "nano/2.7.4")
+for module in "${module_list[@]}"
+do
+    module_name="${module%%/*}"
+    if [ $(module list 2>&1 | grep "$module_name/" | wc -l) -gt 0 ]
+    then
+        echo "    Unloaded previously loaded version of $module_name"
+        module unload $module_name
+    fi
+    echo "    Loading $module"
+    module load $module
+done
+
+# Initialize Conda environment
+echo "Initializing Conda environment..."
+__conda_setup="$('/global/software/sl-7.x86_64/modules/langs/python/3.8.8/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "/global/software/sl-7.x86_64/modules/langs/python/3.8.8/etc/profile.d/conda.sh" ]; then
+        . "/global/software/sl-7.x86_64/modules/langs/python/3.8.8/etc/profile.d/conda.sh"
+    else
+        export PATH="/global/software/sl-7.x86_64/modules/langs/python/3.8.8/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+
+# Check if an argument was provided
+if [ $# -eq 0 ]; then
+    echo "No conda environment given, please use a conda environment name as an argument when calling the script."
+    echo "Possible conda environments:"
+    conda env list
+    echo 'Syntax: "source /<path>/sss_environment <conda_name>"'
+    echo "ERROR"
+    return 1
+fi
+
+# Activate Conda environment
+echo "Activating Conda environment..."
+conda deactivate
+conda activate $1
+
+# Set environment variables
+echo "Setting environment variables..."
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/global/home/groups/co_nuclear/gd_library/code/lib
+export LIBRARY_PATH=$LIBRARY_PATH:/global/home/groups/co_nuclear/gd_library/code/lib
+export CPATH=$CPATH:/global/home/groups/co_nuclear/gd_library/code/include
+
+# Print message indicating environment has been loaded
+echo "Serpent environment loaded."
