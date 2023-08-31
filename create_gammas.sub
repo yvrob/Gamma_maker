@@ -18,4 +18,4 @@
 # run command
 
 source sss_environment kraken
-python make_gammas.py $1 $2
+python make_gammas.py $1 $2 $3

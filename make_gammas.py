@@ -16,62 +16,6 @@ import warnings
 import sys
 from scipy.interpolate import interp2d
 
-############################### INPUT ###############################
-
-
-path_folder_restart = '/global/scratch/users/yvesrobert/HxF_dev/Cases/HTR10_restart/wrk_Serpent/'
-input_file_name = 'input.inp'
-step_start = 1235
-step_end = 1435
-
-# If using argument, change step start and step end based on argument
-if len(sys.argv) == 3:
-    step_start = int(sys.argv[1])
-    step_end = int(sys.argv[2])
-print(f'From {step_start} to {step_end}')
-steps = range(step_start, step_end+1)
-path_output = './'
-
-# To import restart data
-divided_mat_name = 'fuel' # name of the fuel material used in HxF
-
-# Fuel volume calculation
-r_trisos = 0.025
-N_trisos = 8335
-
-# Nuclear data paths
-acefile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7u.xsdata"
-acefile_photons = "/global/home/groups/co_nuclear/serpent_photon_data/mcplib.xsdata"
-decfile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7.dec"
-nfyfile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7.nfy"
-pdatafile = "/global/home/groups/co_nuclear/serpent_photon_data/photon_data"
-
-# Serpent executable
-sss_exe = '/global/home/groups/co_nuclear/HxF_tools/serpent2.2.0_HxF/sss2' # Do not change version for now
-
-# Others
-N_pebbles_max = np.inf # as calculations are heavy, indicate the maximum number of pebbles to extract
-decay_steps = [3] # days of decay before gamma emission
-decays_diff = np.diff([0]  + list(np.atleast_1d(decay_steps)))
-print_Serpent = True
-
-# Gamma processing
-Egrid = np.loadtxt('./detector_data/geometry_Egrid.txt')
-geometry_matrix = np.loadtxt('./detector_data/geometry.txt')
-Egrid_detector = np.loadtxt('./detector_data/NaI_Egrid.txt')*1e-3 # keV -> MeV
-absorption_detector_fine = np.loadtxt('./detector_data/NaI_absorption.txt'),
-resolution_detector_fine = np.loadtxt('./detector_data/NaI_resolution.txt')
-
-#####################################################################
-
-os.makedirs('working_directory', exist_ok=True)
-os.chdir('working_directory')
-
-# Set up Serpent library paths
-os.environ['LD_LIBRARY_PATH'] = "/global/home/groups/co_nuclear/gd_library/code/lib"
-os.environ['LIBRARY_PATH'] = "/global/home/groups/co_nuclear/gd_library/code/lib"
-os.environ['CPATH'] = "/global/home/groups/co_nuclear/gd_library/code/include"
-
 # Function for natural sorting of a list
 def natural_sort(l):
     convert = lambda text: int(text) if text.isdigit() else text.lower()
@@ -469,24 +413,83 @@ def treat_gammas(df_gammas, new_Egrid, treatment_matrix, treatment_suffix, path_
         pickle.dump(treated_gammas, f)    
     return treated_gammas
 
-# Script
-for step in steps:
-    print(step)
-    prefix_restart = f'{path_folder_restart}/{input_file_name}.wrk_{2000000+step}' # path to the restart files (if using dd, just put prefix, 2000000 is the prefix for discharged data)
-    if not isinstance(decays_diff, type(None)) and len(decays_diff)>0:
-        print('\tDecaying materials')
-        t0 = time()
-        path_restart = decay_materials(decays_diff, prefix_restart, divided_mat_name, r_trisos, N_trisos, sss_exe, acefile, decfile, nfyfile, step=0, path_output=path_output, sample_pebbles=N_pebbles_max, print_Serpent=print_Serpent)
-    else:
-        path_restart = prefix_restart
+if __name__=='__main__':
+    ############################### INPUT ###############################
 
-    for i in range(len(np.atleast_1d(decay_steps))):
-        print(f'\tMaking gammas for step {i} ({decay_steps[i]} days)')
-        materials, cumulated_gammas = make_gammas(path_restart, divided_mat_name, r_trisos, N_trisos, sss_exe, acefile, acefile_photons, decfile, nfyfile, pdatafile, step=i, path_output=path_output, prefix_output=f'gammas_{step}', sample_pebbles=N_pebbles_max, print_Serpent=print_Serpent)
-        
-        print(f'\tTreating gammas for step {i}')
-        incident_gammas = treat_gammas(cumulated_gammas, Egrid, geometry_matrix, treatment_suffix=f'{step}_incident_{i}', path_output='./', prefix_output='gammas')
-        absorbed_gammas = treat_gammas(incident_gammas, Egrid_detector, absorption_detector_fine,   treatment_suffix=f'{step}_absorbed_{i}', path_output='./', prefix_output='gammas')
-        detected_gammas = treat_gammas(absorbed_gammas, Egrid_detector, resolution_detector_fine,   treatment_suffix=f'{step}_detected_{i}', path_output='./', prefix_output='gammas')
+    path_folder_restart = '/global/scratch/users/yvesrobert/HxF_dev/Cases/HTR10_restart_P1T09/wrk_Serpent/'
+    step_start = 1436
+    step_end = 2040
 
-    #print(f'{time()-t0:.0f} seconds elapsed (~{(time()-t0)/cumulated_gammas.shape[1]/len(decays_diff):.2f} seconds/material.decay_step)')
+    input_file_name = 'input.inp'
+
+
+    # If using argument, change step start and step end based on argument
+    if len(sys.argv) == 4:
+        path_folder_restart = sys.argv[1]
+        step_start = int(sys.argv[2])
+        step_end = int(sys.argv[3])
+    print(f'From {step_start} to {step_end}')
+    steps = range(step_start, step_end+1)
+    path_output = './'
+
+    # To import restart data
+    divided_mat_name = 'fuel' # name of the fuel material used in HxF
+
+    # Fuel volume calculation
+    r_trisos = 0.025
+    N_trisos = 8335
+
+    # Nuclear data paths
+    acefile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7u.xsdata"
+    acefile_photons = "/global/home/groups/co_nuclear/serpent_photon_data/mcplib.xsdata"
+    decfile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7.dec"
+    nfyfile = "/global/home/groups/co_nuclear/serpent/xsdata/endfb7/sss_endfb7.nfy"
+    pdatafile = "/global/home/groups/co_nuclear/serpent_photon_data/photon_data"
+
+    # Serpent executable
+    sss_exe = '/global/home/groups/co_nuclear/HxF_tools/serpent2.2.0_HxF/sss2' # Do not change version for now
+
+    # Others
+    N_pebbles_max = np.inf # as calculations are heavy, indicate the maximum number of pebbles to extract
+    decay_steps = [3] # days of decay before gamma emission
+    decays_diff = np.diff([0]  + list(np.atleast_1d(decay_steps)))
+    print_Serpent = True
+
+    # Gamma processing
+    Egrid = np.loadtxt('./detector_data/geometry_Egrid.txt')
+    geometry_matrix = np.loadtxt('./detector_data/geometry.txt')
+    Egrid_detector = np.loadtxt('./detector_data/NaI_Egrid.txt')*1e-3 # keV -> MeV
+    absorption_detector_fine = np.loadtxt('./detector_data/NaI_absorption.txt'),
+    resolution_detector_fine = np.loadtxt('./detector_data/NaI_resolution.txt')
+
+    #####################################################################
+
+    os.makedirs('working_directory', exist_ok=True)
+    os.chdir('working_directory')
+
+    # Set up Serpent library paths
+    os.environ['LD_LIBRARY_PATH'] = "/global/home/groups/co_nuclear/gd_library/code/lib"
+    os.environ['LIBRARY_PATH'] = "/global/home/groups/co_nuclear/gd_library/code/lib"
+    os.environ['CPATH'] = "/global/home/groups/co_nuclear/gd_library/code/include"
+
+    # Script
+    for step in steps:
+        print(step)
+        prefix_restart = f'{path_folder_restart}/{input_file_name}.wrk_{2000000+step}' # path to the restart files (if using dd, just put prefix, 2000000 is the prefix for discharged data)
+        if not isinstance(decays_diff, type(None)) and len(decays_diff)>0:
+            print('\tDecaying materials')
+            t0 = time()
+            path_restart = decay_materials(decays_diff, prefix_restart, divided_mat_name, r_trisos, N_trisos, sss_exe, acefile, decfile, nfyfile, step=0, path_output=path_output, sample_pebbles=N_pebbles_max, print_Serpent=print_Serpent)
+        else:
+            path_restart = prefix_restart
+
+        for i in range(len(np.atleast_1d(decay_steps))):
+            print(f'\tMaking gammas for step {i} ({decay_steps[i]} days)')
+            materials, cumulated_gammas = make_gammas(path_restart, divided_mat_name, r_trisos, N_trisos, sss_exe, acefile, acefile_photons, decfile, nfyfile, pdatafile, step=i, path_output=path_output, prefix_output=f'gammas_{step}', sample_pebbles=N_pebbles_max, print_Serpent=print_Serpent)
+            
+            print(f'\tTreating gammas for step {i}')
+            incident_gammas = treat_gammas(cumulated_gammas, Egrid, geometry_matrix, treatment_suffix=f'{step}_incident_{i}', path_output='./', prefix_output='gammas')
+            absorbed_gammas = treat_gammas(incident_gammas, Egrid_detector, absorption_detector_fine,   treatment_suffix=f'{step}_absorbed_{i}', path_output='./', prefix_output='gammas')
+            detected_gammas = treat_gammas(absorbed_gammas, Egrid_detector, resolution_detector_fine,   treatment_suffix=f'{step}_detected_{i}', path_output='./', prefix_output='gammas')
+
+        #print(f'{time()-t0:.0f} seconds elapsed (~{(time()-t0)/cumulated_gammas.shape[1]/len(decays_diff):.2f} seconds/material.decay_step)')
